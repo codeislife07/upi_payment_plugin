@@ -34,22 +34,34 @@ class UpiPaymentPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Activit
     }
 
     private fun getActiveUpiApps(): List<Map<String, String>> {
-        val pm: PackageManager = activity?.packageManager ?: return emptyList()
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("upi://pay"))
-        val apps = pm.queryIntentActivities(intent, 0)
+        val packageManager = activity?.packageManager ?: return (emptyList())
 
-        return apps.map {
-            val packageName = it.activityInfo.packageName
-            val appName = it.loadLabel(pm).toString()
-            val iconBase64 = getAppIconBase64(packageName, pm)
+        try {
+            val activities =
+                packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            val installedApps = activities.map {
+                val packageName = it.activityInfo.packageName
+                val appName = it.loadLabel(packageManager).toString()
+                val iconBase64 = getAppIconBase64(packageName, packageManager)
 
-            mapOf(
-                "packageName" to packageName,
-                "appName" to appName,
-                "icon" to iconBase64
-            )
+                mapOf(
+                    "packageName" to packageName,
+                    "appName" to appName,
+                    "icon" to iconBase64,
+                    "priority" to it.priority.toString(),
+                    "preferredOrder" to it.preferredOrder.toString()
+                )
+            }
+
+            return (installedApps)
+        } catch (ex: Exception) {
+//            result.error("getInstalledUpiApps", "Exception occurred", ex.toString())
+            return emptyList();
         }
     }
+
+
 
     private fun getAppIconBase64(packageName: String, pm: PackageManager): String {
         return try {

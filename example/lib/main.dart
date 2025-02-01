@@ -29,7 +29,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   void initiateUPIPayment() {
-    if (selectedUpiApp == null) return;
+    // if (selectedUpiApp == null) return;
     UpiPaymentPlugin.initiateUPIPayment(
       payeeUpiId: 'Vyapar.172807280980@hdcbank',
       payeeName: 'payeeName',
@@ -39,7 +39,7 @@ class _MyAppState extends State<MyApp> {
       merchantCode: '1234',
       link: '',
       transactionRefId: 'ref123456',
-      packageName: selectedUpiApp!.packageName,
+      packageName: 'com.google.android.apps.nbu.paisa.user',
     );
   }
 
