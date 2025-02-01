@@ -40,6 +40,7 @@ class _MyAppState extends State<MyApp> {
       link: '',
       transactionRefId: 'ref123456',
       packageName: 'com.google.android.apps.nbu.paisa.user',
+      secretKey: '', //providerby upi app
     );
   }
 

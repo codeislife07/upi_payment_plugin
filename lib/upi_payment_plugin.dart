@@ -5,9 +5,12 @@ class UpiPaymentPlugin {
   static const MethodChannel _channel = MethodChannel('upi_payment_plugin');
 
   Future<List<UpiAppModel>> getUpiApps() async {
-    final List<dynamic>? appsData = await _channel.invokeMethod<List<dynamic>>('getActiveUpiApps');
+    final List<dynamic>? appsData =
+        await _channel.invokeMethod<List<dynamic>>('getActiveUpiApps');
     if (appsData == null) return [];
-    return appsData.map((app) => UpiAppModel.fromMap(Map<String, dynamic>.from(app))).toList();
+    return appsData
+        .map((app) => UpiAppModel.fromMap(Map<String, dynamic>.from(app)))
+        .toList();
   }
 
   static Future<String> createSign({
@@ -42,6 +45,7 @@ class UpiPaymentPlugin {
     required String link,
     required String transactionRefId,
     required String packageName,
+    required String secretKey,
   }) async {
     return await _channel.invokeMethod('initiateUPIPayment', {
       'payeeUpiId': payeeUpiId,
@@ -53,6 +57,15 @@ class UpiPaymentPlugin {
       'link': link,
       'transactionRefId': transactionRefId,
       'packageName': packageName,
+      'sign': await createSign(
+          payeeUpiId: payeeUpiId,
+          payeeName: payeeName,
+          amount: amount,
+          transactionId: transactionId,
+          transactionNote: transactionNote,
+          merchantCode: merchantCode,
+          link: link,
+          secretKey: secretKey)
     });
   }
 }
