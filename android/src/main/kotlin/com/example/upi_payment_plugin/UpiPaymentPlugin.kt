@@ -1,12 +1,28 @@
+package com.example.upi_payment_plugin
+
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
+import android.util.Base64
+import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.embedding.engine.plugins.activity.ActivityAware
+import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
-import io.flutter.plugin.common.PluginRegistry
+import java.io.ByteArrayOutputStream
 
-class UpiPaymentPlugin(private val activity: Activity) : MethodChannel.MethodCallHandler {
+class UpiPaymentPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware {
+    private lateinit var channel: MethodChannel
+    private var activity: Activity? = null
+
+    override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
+        channel = MethodChannel(flutterPluginBinding.binaryMessenger, "upi_payment_plugin")
+        channel.setMethodCallHandler(this)
+    }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -17,32 +33,53 @@ class UpiPaymentPlugin(private val activity: Activity) : MethodChannel.MethodCal
         }
     }
 
-    private fun getActiveUpiApps(): List<String> {
-        val pm = activity.packageManager
+    private fun getActiveUpiApps(): List<Map<String, String>> {
+        val pm: PackageManager = activity?.packageManager ?: return emptyList()
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("upi://pay"))
         val apps = pm.queryIntentActivities(intent, 0)
-        return apps.map { it.activityInfo.packageName }
+
+        return apps.map {
+            val packageName = it.activityInfo.packageName
+            val appName = it.loadLabel(pm).toString()
+            val iconBase64 = getAppIconBase64(packageName, pm)
+
+            mapOf(
+                "packageName" to packageName,
+                "appName" to appName,
+                "icon" to iconBase64
+            )
+        }
+    }
+
+    private fun getAppIconBase64(packageName: String, pm: PackageManager): String {
+        return try {
+            val drawable = pm.getApplicationIcon(packageName)
+            if (drawable is BitmapDrawable) {
+                val bitmap = drawable.bitmap
+                val stream = ByteArrayOutputStream()
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
+            } else {
+                ""
+            }
+        } catch (e: Exception) {
+            ""
+        }
     }
 
     private fun createSignParameter(call: MethodCall): String {
         val data = call.arguments as Map<String, String>
-        val payeeUpiId = data["payeeUpiId"] ?: ""
-        val payeeName = data["payeeName"] ?: ""
-        val amount = data["amount"] ?: ""
-        val transactionId = data["transactionId"] ?: ""
-        val transactionNote = data["transactionNote"] ?: ""
-        val merchantCode = data["merchantCode"] ?: ""
-        val link = data["link"] ?: ""
-        val secretKey = data["secretKey"] ?: ""
+        val dataToSign = listOf(
+            data["payeeUpiId"], data["payeeName"], data["amount"], data["transactionId"],
+            data["transactionNote"], data["merchantCode"], data["link"], data["secretKey"]
+        ).joinToString("|") { it ?: "" }
 
-        val dataToSign = "$payeeUpiId|$payeeName|$amount|$transactionId|$transactionNote|$merchantCode|$link|$secretKey"
-        return android.util.Base64.encodeToString(dataToSign.toByteArray(), android.util.Base64.NO_WRAP)
+        return Base64.encodeToString(dataToSign.toByteArray(), Base64.NO_WRAP)
     }
 
     private fun initiateUPIPayment(call: MethodCall, result: MethodChannel.Result) {
         val args = call.arguments as Map<String, String>
-        val uri = Uri.parse("upi://pay")
-            .buildUpon()
+        val uri = Uri.parse("upi://pay").buildUpon()
             .appendQueryParameter("pa", args["payeeUpiId"])
             .appendQueryParameter("pn", args["payeeName"])
             .appendQueryParameter("mc", args["merchantCode"])
@@ -55,23 +92,29 @@ class UpiPaymentPlugin(private val activity: Activity) : MethodChannel.MethodCal
             .build()
 
         val intent = Intent(Intent.ACTION_VIEW, uri)
-        intent.setPackage(args["packageName"]) // Launch specific UPI app
-        activity.startActivityForResult(intent, 1)
+        args["packageName"]?.let { intent.setPackage(it) } // Only set package if provided
+
+        activity?.startActivityForResult(intent, 1)
         result.success("UPI Payment Initiated")
     }
 
-    companion object {
-        @JvmStatic
-        fun registerWith(registrar: PluginRegistry.Registrar) {
-            val channel = MethodChannel(registrar.messenger(), "upi_payment_plugin")
-            val activity = registrar.activity()
-            if (activity == null) {
-                //result.error("NULL_ACTIVITY", "Activity is null", null)
-                return
-            }
-            val plugin = UpiPaymentPlugin(activity)
+    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        activity = binding.activity
+    }
 
-            channel.setMethodCallHandler(plugin)
-        }
+    override fun onDetachedFromActivityForConfigChanges() {
+        activity = null
+    }
+
+    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+        activity = binding.activity
+    }
+
+    override fun onDetachedFromActivity() {
+        activity = null
+    }
+
+    override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        channel.setMethodCallHandler(null)
     }
 }

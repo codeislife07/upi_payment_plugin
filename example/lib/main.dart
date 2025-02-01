@@ -17,8 +17,8 @@ class _MyAppState extends State<MyApp> {
 
   @override
   void initState() {
-    super.initState();
     fetchUpiApps();
+    super.initState();
   }
 
   Future<void> fetchUpiApps() async {
@@ -48,28 +48,30 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(title: Text("UPI Payment")),
-        body: Column(
-          children: [
-            DropdownButton<UpiAppModel>(
-              hint: Text("Select UPI App"),
-              value: selectedUpiApp,
-              onChanged: (UpiAppModel? newValue) {
-                setState(() {
-                  selectedUpiApp = newValue;
-                });
-              },
-              items: upiApps.map((UpiAppModel app) {
-                return DropdownMenuItem<UpiAppModel>(
-                  value: app,
-                  child: Text(app.appName),
-                );
-              }).toList(),
-            ),
-            ElevatedButton(
-              onPressed: initiateUPIPayment,
-              child: Text("Pay Now"),
-            ),
-          ],
+        body: Center(
+          child: Column(
+            children: [
+              DropdownButton<UpiAppModel>(
+                hint: Text("Select UPI App"),
+                value: selectedUpiApp,
+                onChanged: (UpiAppModel? newValue) {
+                  setState(() {
+                    selectedUpiApp = newValue;
+                  });
+                },
+                items: upiApps.map((UpiAppModel app) {
+                  return DropdownMenuItem<UpiAppModel>(
+                    value: app,
+                    child: Text(app.appName),
+                  );
+                }).toList(),
+              ),
+              ElevatedButton(
+                onPressed: initiateUPIPayment,
+                child: Text("Pay Now"),
+              ),
+            ],
+          ),
         ),
       ),
     );
