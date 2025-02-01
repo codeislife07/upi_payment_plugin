@@ -64,7 +64,13 @@ class UpiPaymentPlugin(private val activity: Activity) : MethodChannel.MethodCal
         @JvmStatic
         fun registerWith(registrar: PluginRegistry.Registrar) {
             val channel = MethodChannel(registrar.messenger(), "upi_payment_plugin")
-            val plugin = UpiPaymentPlugin(registrar.activity())
+            val activity = registrar.activity()
+            if (activity == null) {
+                //result.error("NULL_ACTIVITY", "Activity is null", null)
+                return
+            }
+            val plugin = UpiPaymentPlugin(activity)
+
             channel.setMethodCallHandler(plugin)
         }
     }
