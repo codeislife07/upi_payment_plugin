@@ -1,46 +1,71 @@
-package com.example.upi_payment_plugin
-
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import io.flutter.embedding.engine.plugins.FlutterPlugin
-import io.flutter.embedding.engine.plugins.activity.ActivityAware
-import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
-import io.flutter.plugin.common.MethodChannel.MethodCallHandler
+import io.flutter.plugin.common.PluginRegistry
 
-class UpiPaymentPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
-    private lateinit var channel: MethodChannel
-    private var activity: Activity? = null
-    private val UPI_PAYMENT_REQUEST_CODE = 123
-
-    override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-        channel = MethodChannel(flutterPluginBinding.binaryMessenger, "upi_payment_plugin")
-        channel.setMethodCallHandler(this)
-    }
+class UpiPaymentPlugin(private val activity: Activity) : MethodChannel.MethodCallHandler {
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
-        if (call.method == "initiateUPIPayment") {
-            val upiUri = Uri.parse(call.argument<String>("upiUri"))
-            val upiIntent = Intent(Intent.ACTION_VIEW, upiUri)
-            upiIntent.setPackage(call.argument<String>("packageName"))
-            activity?.startActivityForResult(upiIntent, UPI_PAYMENT_REQUEST_CODE)
-            result.success("UPI Payment initiated")
-        } else {
-            result.notImplemented()
+        when (call.method) {
+            "getActiveUpiApps" -> result.success(getActiveUpiApps())
+            "createSign" -> result.success(createSignParameter(call))
+            "initiateUPIPayment" -> initiateUPIPayment(call, result)
+            else -> result.notImplemented()
         }
     }
 
-    override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-        channel.setMethodCallHandler(null)
+    private fun getActiveUpiApps(): List<String> {
+        val pm = activity.packageManager
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("upi://pay"))
+        val apps = pm.queryIntentActivities(intent, 0)
+        return apps.map { it.activityInfo.packageName }
     }
 
-    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
-        activity = binding.activity
+    private fun createSignParameter(call: MethodCall): String {
+        val data = call.arguments as Map<String, String>
+        val payeeUpiId = data["payeeUpiId"] ?: ""
+        val payeeName = data["payeeName"] ?: ""
+        val amount = data["amount"] ?: ""
+        val transactionId = data["transactionId"] ?: ""
+        val transactionNote = data["transactionNote"] ?: ""
+        val merchantCode = data["merchantCode"] ?: ""
+        val link = data["link"] ?: ""
+        val secretKey = data["secretKey"] ?: ""
+
+        val dataToSign = "$payeeUpiId|$payeeName|$amount|$transactionId|$transactionNote|$merchantCode|$link|$secretKey"
+        return android.util.Base64.encodeToString(dataToSign.toByteArray(), android.util.Base64.NO_WRAP)
     }
 
-    override fun onDetachedFromActivityForConfigChanges() {}
-    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {}
-    override fun onDetachedFromActivity() {}
+    private fun initiateUPIPayment(call: MethodCall, result: MethodChannel.Result) {
+        val args = call.arguments as Map<String, String>
+        val uri = Uri.parse("upi://pay")
+            .buildUpon()
+            .appendQueryParameter("pa", args["payeeUpiId"])
+            .appendQueryParameter("pn", args["payeeName"])
+            .appendQueryParameter("mc", args["merchantCode"])
+            .appendQueryParameter("tid", args["transactionId"])
+            .appendQueryParameter("tr", args["transactionRefId"])
+            .appendQueryParameter("tn", args["transactionNote"])
+            .appendQueryParameter("am", args["amount"])
+            .appendQueryParameter("cu", "INR")
+            .appendQueryParameter("url", args["link"])
+            .build()
+
+        val intent = Intent(Intent.ACTION_VIEW, uri)
+        intent.setPackage(args["packageName"]) // Launch specific UPI app
+        activity.startActivityForResult(intent, 1)
+        result.success("UPI Payment Initiated")
+    }
+
+    companion object {
+        @JvmStatic
+        fun registerWith(registrar: PluginRegistry.Registrar) {
+            val channel = MethodChannel(registrar.messenger(), "upi_payment_plugin")
+            val plugin = UpiPaymentPlugin(registrar.activity())
+            channel.setMethodCallHandler(plugin)
+        }
+    }
 }
