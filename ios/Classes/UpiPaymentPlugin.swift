@@ -97,6 +97,7 @@ public class SwiftUpiPaymentPlugin: NSObject, FlutterPlugin {
             args["merchantCode"] ?? "",
             args["link"] ?? "",
             args["secretKey"] ?? ""
+            args["sign"] ?? ""
         ].joined(separator: "|")
 
         return Data(data.utf8).base64EncodedString()

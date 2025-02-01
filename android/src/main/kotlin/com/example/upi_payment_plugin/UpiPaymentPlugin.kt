@@ -101,6 +101,7 @@ class UpiPaymentPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Activit
             .appendQueryParameter("am", args["amount"])
             .appendQueryParameter("cu", "INR")
             .appendQueryParameter("url", args["link"])
+            .appendQueryParameter("sign", args["sign"])
             .build()
 
         val intent = Intent(Intent.ACTION_VIEW, uri)
