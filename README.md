@@ -15,8 +15,7 @@ Add the package to your **pubspec.yaml** file:
 
 ```yaml
 dependencies:
-  upi_payment_plugin:
-    path: ../upi_payment_plugin  # Use the correct path or fetch from pub.dev when published
+  upi_payment_plugin: 0.0.1
 ```
 Then, run:
 ```sh
