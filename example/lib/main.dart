@@ -31,7 +31,7 @@ class _MyAppState extends State<MyApp> {
   void initiateUPIPayment() {
     // if (selectedUpiApp == null) return;
     UpiPaymentPlugin.initiateUPIPayment(
-      payeeUpiId: 'Vyapar.172807280980@hdcbank',
+      payeeUpiId: 'upi@id',
       payeeName: 'payeeName',
       amount: 1.0,
       transactionId: 'txn123456',
