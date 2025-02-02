@@ -60,87 +60,86 @@ Add the following inside the `<dict>` tag:
 
 ```dart
 import 'package:flutter/material.dart';
+import 'package:upi_payment_plugin/model/upi_app_model.dart';
 import 'package:upi_payment_plugin/upi_payment_plugin.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(MyApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MyApp extends StatefulWidget {
+  @override
+  _MyAppState createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  List<UpiAppModel> upiApps = [];
+  UpiAppModel? selectedUpiApp;
+
+  @override
+  void initState() {
+    fetchUpiApps();
+    super.initState();
+  }
+
+  Future<void> fetchUpiApps() async {
+    List<UpiAppModel> apps = await UpiPaymentPlugin().getUpiApps();
+    setState(() {
+      upiApps = apps;
+    });
+  }
+
+  void initiateUPIPayment() {
+    // if (selectedUpiApp == null) return;
+    UpiPaymentPlugin.initiateUPIPayment(
+      payeeUpiId: 'upi@id',
+      payeeName: 'payeeName',
+      amount: 1.0,
+      transactionId: 'txn123456',
+      transactionNote: 'Test Transaction',
+      merchantCode: '1234',
+      link: '',
+      transactionRefId: 'ref123456',
+      packageName: 'com.google.android.apps.nbu.paisa.user',
+      secretKey: '', //provide by upi app
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: HomeScreen(),
-    );
-  }
-}
-
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
-
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  List<String> upiApps = [];
-
-  @override
-  void initState() {
-    super.initState();
-    fetchUPIApps();
-  }
-
-  void fetchUPIApps() async {
-    List<String>? apps = await UpiPaymentPlugin.getAvailableUPIApps();
-    if (apps != null) {
-      setState(() {
-        upiApps = apps;
-      });
-    }
-  }
-
-  void startPayment(String packageName) async {
-    String? result = await UpiPaymentPlugin.initiateUPIPayment(
-      packageName: packageName,
-      merchantUPI: "Vyapar.172807280980@hdcbank",
-      merchantName: "Merchant Name",
-      transactionId: "TXN123456",
-      orderId: "ORDER123",
-      note: "Payment for Order 123",
-      amount: "1.00",
-      currency: "INR",
-    );
-
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result ?? "Payment Failed")));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("UPI Payment")),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (upiApps.isEmpty)
-              const CircularProgressIndicator()
-            else
-              ...upiApps.map(
-                (app) => ElevatedButton(
-                  onPressed: () => startPayment(app),
-                  child: Text("Pay with ${app.split('.').last}"),
-                ),
+      home: Scaffold(
+        appBar: AppBar(title: Text("UPI Payment")),
+        body: Center(
+          child: Column(
+            children: [
+              DropdownButton<UpiAppModel>(
+                hint: Text("Select UPI App"),
+                value: selectedUpiApp,
+                onChanged: (UpiAppModel? newValue) {
+                  setState(() {
+                    selectedUpiApp = newValue;
+                  });
+                },
+                items: upiApps.map((UpiAppModel app) {
+                  return DropdownMenuItem<UpiAppModel>(
+                    value: app,
+                    child: Text(app.appName),
+                  );
+                }).toList(),
               ),
-          ],
+              ElevatedButton(
+                onPressed: initiateUPIPayment,
+                child: Text("Pay Now"),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
+
 ```
 
 ---
