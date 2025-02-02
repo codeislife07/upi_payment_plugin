@@ -1,7 +1,7 @@
 name: upi_payment_plugin
-description: "A new Flutter plugin project."
+description: "A flutter plugin to launch UPI payment applications on Android and iOS towards making UPI payments."
 version: 0.0.1
-homepage:
+homepage: https://github.com/codeislife07/upi_payment_plugin
 
 environment:
   sdk: ^3.6.1
