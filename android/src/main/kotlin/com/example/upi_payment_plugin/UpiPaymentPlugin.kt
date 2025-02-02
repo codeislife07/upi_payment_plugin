@@ -1,7 +1,6 @@
 package com.example.upi_payment_plugin
 
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -13,11 +12,14 @@ import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.PluginRegistry
 import java.io.ByteArrayOutputStream
 
-class UpiPaymentPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware {
+class UpiPaymentPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware, PluginRegistry.ActivityResultListener {
     private lateinit var channel: MethodChannel
     private var activity: Activity? = null
+    private var pendingResult: MethodChannel.Result? = null
+    private val requestCode = 2024
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "upi_payment_plugin")
@@ -34,13 +36,15 @@ class UpiPaymentPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Activit
     }
 
     private fun getActiveUpiApps(): List<Map<String, String>> {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("upi://pay"))
-        val packageManager = activity?.packageManager ?: return (emptyList())
+        val packageManager = activity?.packageManager ?: return emptyList()
 
-        try {
-            val activities =
-                packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
-            val installedApps = activities.map {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            data = Uri.parse("upi://pay")
+        }
+
+        return try {
+            val activities = packageManager.queryIntentActivities(intent, PackageManager.MATCH_ALL)
+            activities.map {
                 val packageName = it.activityInfo.packageName
                 val appName = it.loadLabel(packageManager).toString()
                 val iconBase64 = getAppIconBase64(packageName, packageManager)
@@ -48,20 +52,13 @@ class UpiPaymentPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Activit
                 mapOf(
                     "packageName" to packageName,
                     "appName" to appName,
-                    "icon" to iconBase64,
-                    "priority" to it.priority.toString(),
-                    "preferredOrder" to it.preferredOrder.toString()
+                    "icon" to iconBase64
                 )
             }
-
-            return (installedApps)
         } catch (ex: Exception) {
-//            result.error("getInstalledUpiApps", "Exception occurred", ex.toString())
-            return emptyList();
+            emptyList()
         }
     }
-
-
 
     private fun getAppIconBase64(packageName: String, pm: PackageManager): String {
         return try {
@@ -91,6 +88,7 @@ class UpiPaymentPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Activit
 
     private fun initiateUPIPayment(call: MethodCall, result: MethodChannel.Result) {
         val args = call.arguments as Map<String, String>
+
         val uri = Uri.parse("upi://pay").buildUpon()
             .appendQueryParameter("pa", args["payeeUpiId"])
             .appendQueryParameter("pn", args["payeeName"])
@@ -105,14 +103,34 @@ class UpiPaymentPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Activit
             .build()
 
         val intent = Intent(Intent.ACTION_VIEW, uri)
-        args["packageName"]?.let { intent.setPackage(it) } // Only set package if provided
+        args["packageName"]?.let { intent.setPackage(it) } // Set specific UPI app if provided
 
-        activity?.startActivityForResult(intent, 1)
-        result.success("UPI Payment Initiated")
+        if (activity?.let { intent.resolveActivity(it.packageManager) } == null) {
+            result.success("upi_app_not_found")
+            return
+        }
+
+        pendingResult = result
+        activity?.startActivityForResult(intent, requestCode)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
+        if (requestCode == this.requestCode && pendingResult != null) {
+            if (data != null) {
+                val response = data.getStringExtra("response") ?: "invalid_response"
+                pendingResult?.success(response)
+            } else {
+                pendingResult?.success("user_cancelled")
+            }
+            pendingResult = null
+            return true
+        }
+        return false
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         activity = binding.activity
+        binding.addActivityResultListener(this)
     }
 
     override fun onDetachedFromActivityForConfigChanges() {

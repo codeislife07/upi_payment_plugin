@@ -32,7 +32,7 @@ public class SwiftUpiPaymentPlugin: NSObject, FlutterPlugin {
         for scheme in upiSchemes {
             if let url = URL(string: scheme), UIApplication.shared.canOpenURL(url) {
                 let appName = getAppName(from: scheme)
-                let appIconBase64 = getAppIconBase64(from: scheme)
+                let appIconBase64 = getAppIconBase64(for: scheme)
 
                 upiApps.append([
                     "packageName": scheme,
@@ -61,12 +61,22 @@ public class SwiftUpiPaymentPlugin: NSObject, FlutterPlugin {
     }
 
     /// Converts app icon to Base64 string
-    private func getAppIconBase64(from scheme: String) -> String {
+    private func getAppIconBase64(for scheme: String) -> String {
         guard let bundleId = getBundleId(for: scheme),
-              let appIcon = UIImage(named: bundleId)?.pngData() else {
+              let appIcon = getAppIcon(bundleId: bundleId),
+              let imageData = appIcon.pngData() else {
             return ""
         }
-        return appIcon.base64EncodedString()
+        return imageData.base64EncodedString()
+    }
+
+    /// Gets app icon from bundle
+    private func getAppIcon(bundleId: String) -> UIImage? {
+        guard let app = UIApplication.shared.delegate as? UIApplicationDelegate,
+              let icon = app.value(forKeyPath: "iconsByBundleIdentifier.\(bundleId)") as? UIImage else {
+            return nil
+        }
+        return icon
     }
 
     /// Gets bundle identifier for UPI apps
@@ -96,7 +106,7 @@ public class SwiftUpiPaymentPlugin: NSObject, FlutterPlugin {
             args["transactionNote"] ?? "",
             args["merchantCode"] ?? "",
             args["link"] ?? "",
-            args["secretKey"] ?? ""
+            args["secretKey"] ?? "",
             args["sign"] ?? ""
         ].joined(separator: "|")
 
@@ -107,9 +117,27 @@ public class SwiftUpiPaymentPlugin: NSObject, FlutterPlugin {
     private func initiateUPIPayment(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
         guard let args = call.arguments as? [String: String],
               let payeeUpiId = args["payeeUpiId"],
-              let amount = args["amount"],
-              let appUrl = URL(string: "upi://pay?pa=\(payeeUpiId)&pn=\(args["payeeName"] ?? "")&am=\(amount)&cu=INR&tn=\(args["transactionNote"] ?? "")") else {
+              let amount = args["amount"] else {
             result(FlutterError(code: "INVALID_ARGUMENTS", message: "Invalid UPI parameters", details: nil))
+            return
+        }
+
+        var urlComponents = URLComponents(string: "upi://pay")
+        urlComponents?.queryItems = [
+            URLQueryItem(name: "pa", value: payeeUpiId),
+            URLQueryItem(name: "pn", value: args["payeeName"] ?? ""),
+            URLQueryItem(name: "mc", value: args["merchantCode"]),
+            URLQueryItem(name: "tid", value: args["transactionId"]),
+            URLQueryItem(name: "tr", value: args["transactionRefId"]),
+            URLQueryItem(name: "tn", value: args["transactionNote"]),
+            URLQueryItem(name: "am", value: amount),
+            URLQueryItem(name: "cu", value: "INR"),
+            URLQueryItem(name: "url", value: args["link"]),
+            URLQueryItem(name: "sign", value: args["sign"])
+        ].compactMap { $0 }
+
+        guard let appUrl = urlComponents?.url else {
+            result(FlutterError(code: "INVALID_URL", message: "Unable to create UPI URL", details: nil))
             return
         }
 
