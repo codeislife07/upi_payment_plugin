@@ -106,7 +106,7 @@ public class UpiPaymentPlugin: NSObject, FlutterPlugin {
             args["transactionNote"] ?? "",
             args["merchantCode"] ?? "",
             args["link"] ?? "",
-            // args["secretKey"] ?? ""
+            args["secretKey"] ?? ""
         ].joined(separator: "|")
 
         return Data(data.utf8).base64EncodedString()
