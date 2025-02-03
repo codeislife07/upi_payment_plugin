@@ -1,10 +1,10 @@
 import Flutter
 import UIKit
 
-public class SwiftUpiPaymentPlugin: NSObject, FlutterPlugin {
+public class UpiPaymentPlugin: NSObject, FlutterPlugin {
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "upi_payment_plugin", binaryMessenger: registrar.messenger())
-        let instance = SwiftUpiPaymentPlugin()
+        let instance = UpiPaymentPlugin()
         registrar.addMethodCallDelegate(instance, channel: channel)
     }
 
@@ -106,8 +106,7 @@ public class SwiftUpiPaymentPlugin: NSObject, FlutterPlugin {
             args["transactionNote"] ?? "",
             args["merchantCode"] ?? "",
             args["link"] ?? "",
-            args["secretKey"] ?? "",
-            args["sign"] ?? ""
+            // args["secretKey"] ?? ""
         ].joined(separator: "|")
 
         return Data(data.utf8).base64EncodedString()

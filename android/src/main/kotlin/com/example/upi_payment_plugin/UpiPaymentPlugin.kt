@@ -80,7 +80,8 @@ class UpiPaymentPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Activit
         val data = call.arguments as Map<String, String>
         val dataToSign = listOf(
             data["payeeUpiId"], data["payeeName"], data["amount"], data["transactionId"],
-            data["transactionNote"], data["merchantCode"], data["link"], data["secretKey"]
+            data["transactionNote"], data["merchantCode"], data["link"], 
+            //data["secretKey"]
         ).joinToString("|") { it ?: "" }
 
         return Base64.encodeToString(dataToSign.toByteArray(), Base64.NO_WRAP)
